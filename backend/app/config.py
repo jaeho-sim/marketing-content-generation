@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # Set to http://localhost:4443 when using fake-gcs-server locally.
     # docker-compose sets this automatically inside the backend container.
     storage_emulator_host: str = ""
+    # Browser-facing URL for the GCS emulator (used in presigned upload URLs).
+    # Defaults to storage_emulator_host when not set.
+    storage_emulator_public_host: str = ""
 
     # Pub/Sub
     pubsub_topic: str = "media-uploaded"

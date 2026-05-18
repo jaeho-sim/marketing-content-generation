@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -44,11 +42,14 @@ services:
       fake-gcs:
         condition: service_healthy
     restart: "no"
-    entrypoint: >
-      sh -c "curl -sf -X POST http://fake-gcs:4443/storage/v1/b
-             -H 'Content-Type: application/json'
-             -d '{\"name\":\"marketing-content-media\"}'
-             && echo 'bucket ready'"
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        curl -sf -X POST http://fake-gcs:4443/storage/v1/b
+        -H 'Content-Type: application/json'
+        -d '{"name":"marketing-content-media"}'
+        && echo 'bucket ready'
 
   backend:
     build:
@@ -68,6 +69,7 @@ services:
       DATABASE_URL_SYNC: postgresql+psycopg2://postgres:postgres@db:5432/marketing_content
       APP_ENV: development
       STORAGE_EMULATOR_HOST: http://fake-gcs:4443
+      STORAGE_EMULATOR_PUBLIC_HOST: http://localhost:4443
     ports:
       - "8000:8000"
     volumes:

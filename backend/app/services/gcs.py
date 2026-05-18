@@ -72,8 +72,10 @@ def generate_presigned_upload_url(gcs_key: str) -> str:
     Real GCS: v4 signed URL valid for gcs_presigned_url_expiry_seconds.
     """
     if settings.storage_emulator_host:
+        # Use the public host so the browser can reach the URL directly.
+        public_host = settings.storage_emulator_public_host or settings.storage_emulator_host
         return (
-            f"{settings.storage_emulator_host}/upload/storage/v1/b/"
+            f"{public_host}/upload/storage/v1/b/"
             f"{settings.gcs_bucket_name}/o?uploadType=media&name={gcs_key}"
         )
 

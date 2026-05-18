@@ -182,7 +182,7 @@ async def _run_pipeline(
             draft = Draft(
                 event_id=uuid.UUID(event_id),
                 content=draft_data["content"],
-                llm_provider="claude",
+                llm_provider=settings.llm_provider,
                 llm_model=draft_data["model"],
                 prompt_tokens=draft_data["prompt_tokens"],
                 completion_tokens=draft_data["completion_tokens"],
