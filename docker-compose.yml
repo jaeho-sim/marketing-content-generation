@@ -1,0 +1,95 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: marketing_content
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Local GCS emulator — acts like real GCS for uploads and downloads.
+  fake-gcs:
+    image: fsouza/fake-gcs-server:1.49.2
+    restart: unless-stopped
+    ports:
+      - "4443:4443"
+    command:
+      - -scheme=http
+      - -port=4443
+      - -external-url=http://fake-gcs:4443
+      - -public-host=fake-gcs:4443
+    volumes:
+      - gcsdata:/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4443/ || true"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot seed: creates the bucket in fake-gcs on first run.
+  fake-gcs-seed:
+    image: curlimages/curl:8.10.1
+    depends_on:
+      fake-gcs:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      sh -c "curl -sf -X POST http://fake-gcs:4443/storage/v1/b
+             -H 'Content-Type: application/json'
+             -d '{\"name\":\"marketing-content-media\"}'
+             && echo 'bucket ready'"
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        WHISPER_MODEL_SIZE: base
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      fake-gcs:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/marketing_content
+      DATABASE_URL_SYNC: postgresql+psycopg2://postgres:postgres@db:5432/marketing_content
+      APP_ENV: development
+      STORAGE_EMULATOR_HOST: http://fake-gcs:4443
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app            # hot-reload in dev
+      - whisper-cache:/root/.cache/whisper
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+volumes:
+  pgdata:
+  gcsdata:
+  whisper-cache:
